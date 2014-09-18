@@ -35,11 +35,21 @@ def make_key(k, with_locale=True):
         key += encoding.smart_str(translation.get_language())
     # memcached keys must be < 250 bytes and w/o whitespace, but it's nice
     # to see the keys when using locmem.
-    return hashlib.md5(key).hexdigest()
+    try:
+        return hashlib.md5(key).hexdigest()
+    except TypeError:
+        # perhaps python 3
+        return hashlib.md5(key.encode('utf-8')).hexdigest()
 
 
 def flush_key(obj):
     """We put flush lists in the flush: namespace."""
+    try:
+        basestring = basestring
+    except NameError:
+        # python 3 has no basestring
+        basestring = (str,bytes)
+
     key = obj if isinstance(obj, basestring) else obj.cache_key
     return FLUSH + make_key(key, with_locale=False)
 
@@ -60,7 +70,7 @@ def safe_redis(return_type):
         def wrapper(*args, **kw):
             try:
                 return f(*args, **kw)
-            except (socket.error, redislib.RedisError), e:
+            except (socket.error, redislib.RedisError) as e:
                 log.error('redis error: %s' % e)
                 # log.error('%r\n%r : %r' % (f.__name__, args[1:], kw))
                 if hasattr(return_type, '__call__'):

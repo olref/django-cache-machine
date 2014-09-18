@@ -109,7 +109,12 @@ class CacheMachine(object):
         to_cache = []
         try:
             while True:
-                obj = iterator.next()
+                try:
+                    obj = iterator.next()
+                except AttributeError:
+                    # python 3
+                    obj = next(iterator)
+
                 obj.from_cache = False
                 to_cache.append(obj)
                 yield obj
@@ -242,7 +247,13 @@ class CachingMixin(object):
         For the Addon class, with a pk of 2, we get "o:addons.addon:2".
         """
         key_parts = ('o', cls._meta, pk, db)
-        return ':'.join(map(encoding.smart_unicode, key_parts))
+        try:
+            smart_unicode = encoding.smart_unicode
+        except AttributeError:
+            # with python 3 django has no encoding.smart_unicode method
+            smart_unicode = str
+
+        return ':'.join(map(smart_unicode, key_parts))
 
     def _cache_keys(self):
         """Return the cache key for self plus all related foreign keys."""
